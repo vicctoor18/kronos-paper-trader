@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kronos Paper Trader</title>
+<style>
+  :root {
+    --bg:      #0f1117;
+    --bg2:     #1a1d27;
+    --bg3:     #22273a;
+    --border:  #2e3347;
+    --text:    #e2e8f0;
+    --muted:   #8892a4;
+    --green:   #22c55e;
+    --red:     #ef4444;
+    --blue:    #3b82f6;
+    --yellow:  #f59e0b;
+    --radius:  10px;
+    --font:    'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+  /* ── Setup modal ── */
+  #setup-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.75); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  #setup-overlay.show { display: flex; }
+  #setup-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 420px;
+  }
+  #setup-box h2 { font-size: 18px; margin-bottom: 1.2rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .field input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 13px;
+  }
+  .field input:focus { outline: none; border-color: var(--blue); }
+  .btn-primary {
+    width: 100%; background: var(--blue); color: #fff; border: none;
+    border-radius: 6px; padding: 10px; font-size: 14px; cursor: pointer;
+    margin-top: .5rem;
+  }
+  .btn-primary:hover { opacity: .9; }
+
+  /* ── Layout ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .dot.paused { background: var(--yellow); }
+  main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+
+  /* ── KPI cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .kpi {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.2rem;
+  }
+  .kpi .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .kpi .value { font-size: 24px; font-weight: 700; }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .up   { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* ── Two-column layout ── */
+  .row { display: grid; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .row-6040 { grid-template-columns: 3fr 2fr; }
+  .row-5050 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 800px) {
+    .row-6040, .row-5050 { grid-template-columns: 1fr; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.2rem;
+  }
+  .card h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1rem; }
+
+  /* ── Chart ── */
+  #chart-wrap { position: relative; height: 220px; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { color: var(--muted); font-weight: 500; text-align: left; padding: 0 8px 8px; font-size: 11px; text-transform: uppercase; }
+  td { padding: 8px; border-top: 1px solid var(--border); }
+  tr:first-child td { border-top: none; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+  }
+  .pill-green { background: rgba(34,197,94,.15); color: var(--green); }
+  .pill-red   { background: rgba(239,68,68,.15);  color: var(--red); }
+  .pill-blue  { background: rgba(59,130,246,.15); color: var(--blue); }
+  .empty { color: var(--muted); text-align: center; padding: 2rem; font-size: 13px; }
+
+  /* ── Signals ── */
+  .signal-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-top: 1px solid var(--border);
+  }
+  .signal-row:first-child { border-top: none; }
+  .signal-sym { font-weight: 600; font-size: 14px; }
+  .signal-price { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .signal-exp { font-weight: 700; font-size: 16px; }
+
+  /* ── Refresh btn ── */
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+  .spinner { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ── Setup modal ─────────────────────────────────────────── -->
+<div id="setup-overlay">
+  <div id="setup-box">
+    <h2>⚙ Configuración inicial</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:1.2rem">
+      Introduce las credenciales de tu proyecto Supabase.<br>
+      Solo se necesitan una vez (se guardan en tu navegador).
+    </p>
+    <div class="field">
+      <label>Supabase URL</label>
+      <input id="cfg-url" placeholder="https://xxxx.supabase.co" type="text"/>
+    </div>
+    <div class="field">
+      <label>Supabase Anon Key (clave pública, solo lectura)</label>
+      <input id="cfg-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5..." type="text"/>
+    </div>
+    <button class="btn-primary" onclick="saveConfig()">Guardar y cargar dashboard</button>
+  </div>
+</div>
+
+<!-- ── App ─────────────────────────────────────────────────── -->
+<header>
+  <h1>Kronos Paper Trader</h1>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div class="status">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Cargando…</span>
+    </div>
+    <button class="btn-ghost" onclick="loadAll(true)">
+      <span id="refresh-icon">↻</span> Actualizar
+    </button>
+    <button class="btn-ghost" onclick="clearConfig()" style="font-size:11px">Cambiar cuenta</button>
+  </div>
+</header>
+
+<main>
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="label">Valor total</div>
+      <div class="value" id="kpi-total">—</div>
+      <div class="sub" id="kpi-sub-total">Capital inicial: 5 000 €</div>
+    </div>
+    <div class="kpi">
+      <div class="label">P&amp;L total</div>
+      <div class="value" id="kpi-pnl">—</div>
+      <div class="sub" id="kpi-roi">ROI: —</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Posiciones abiertas</div>
+      <div class="value" id="kpi-pos">—</div>
+      <div class="sub" id="kpi-cash">Efectivo libre: —</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Win rate</div>
+      <div class="value" id="kpi-wr">—</div>
+      <div class="sub" id="kpi-trades">Operaciones cerradas: —</div>
+    </div>
+  </div>
+
+  <!-- Chart + open positions -->
+  <div class="row row-6040">
+    <div class="card">
+      <h3>Evolución del portfolio</h3>
+      <div id="chart-wrap"><canvas id="portfolio-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Posiciones abiertas</h3>
+      <div id="open-positions-container"><p class="empty">Cargando…</p></div>
+    </div>
+  </div>
+
+  <!-- Signals + trade history -->
+  <div class="row row-5050">
+    <div class="card">
+      <h3>Señales Kronos (última hora)</h3>
+      <div id="signals-container"><p class="empty">Cargando…</p></div>
+    </div>
+    <div class="card">
+      <h3>Últimas operaciones cerradas</h3>
+      <div id="trades-container"><p class="empty">Cargando…</p></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const INITIAL_CAPITAL = 5000
+
+// ── Config via localStorage ────────────────────────────────
+function getConfig() {
+  return {
+    url: localStorage.getItem('sb_url') || '',
+    key: localStorage.getItem('sb_key') || '',
+  }
+}
+
+window.saveConfig = () => {
+  const url = document.getElementById('cfg-url').value.trim()
+  const key = document.getElementById('cfg-key').value.trim()
+  if (!url || !key) { alert('Rellena los dos campos'); return }
+  localStorage.setItem('sb_url', url)
+  localStorage.setItem('sb_key', key)
+  document.getElementById('setup-overlay').classList.remove('show')
+  loadAll()
+}
+
+window.clearConfig = () => {
+  localStorage.removeItem('sb_url')
+  localStorage.removeItem('sb_key')
+  document.getElementById('setup-overlay').classList.add('show')
+}
+
+// ── Helpers de formato ─────────────────────────────────────
+const fmt   = n => n == null ? '—' : new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+const fmtE  = n => `${fmt(n)} €`
+const fmtP  = n => `${n >= 0 ? '+' : ''}${fmt(n)} %`
+const color = n => n >= 0 ? 'up' : 'down'
+
+// ── Chart instance ─────────────────────────────────────────
+let chartInstance = null
+
+function drawChart(rows) {
+  const labels = rows.map(r => dayjs(r.created_at).format('DD/MM HH:mm'))
+  const values = rows.map(r => parseFloat(r.total_value))
+  const ctx    = document.getElementById('portfolio-chart').getContext('2d')
+  if (chartInstance) chartInstance.destroy()
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Valor (€)',
+        data: values,
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8892a4', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(46,51,71,.5)' } },
+        y: { ticks: { color: '#8892a4', font: { size: 11 }, callback: v => fmt(v) + ' €' }, grid: { color: 'rgba(46,51,71,.5)' } },
+      }
+    }
+  })
+}
+
+// ── Live prices from Binance ───────────────────────────────
+async function getLivePrices(symbols) {
+  const map = {}
+  for (const sym of symbols) {
+    try {
+      const binSym = sym.replace('/', '')
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binSym}`)
+      const d = await r.json()
+      map[sym] = parseFloat(d.price)
+    } catch { map[sym] = null }
+  }
+  return map
+}
+
+// ── Main data loader ───────────────────────────────────────
+window.loadAll = async (forceRefresh = false) => {
+  const cfg = getConfig()
+  if (!cfg.url || !cfg.key) {
+    document.getElementById('setup-overlay').classList.add('show')
+    return
+  }
+
+  const icon = document.getElementById('refresh-icon')
+  icon.classList.add('spinner')
+  icon.textContent = '↻'
+
+  try {
+    const sb = createClient(cfg.url, cfg.key)
+
+    // ── Portfolio history (last 30 days, max 720 points) ──
+    const pfRes = await sb.table('portfolio')
+      .select('created_at, total_value, cash, peak_value, paused, open_positions_count')
+      .order('created_at', { ascending: true })
+      .limit(720)
+      .execute ? sb.table('portfolio')
+        .select('created_at, total_value, cash, peak_value, paused, open_positions_count')
+        .order('created_at', { ascending: true })
+        .limit(720) : null
+
+    const { data: pfHistory } = await sb
+      .from('portfolio')
+      .select('created_at, total_value, cash, peak_value, paused, open_positions_count')
+      .order('created_at', { ascending: true })
+      .limit(720)
+
+    if (!pfHistory || pfHistory.length === 0) {
+      document.getElementById('status-text').textContent = 'Sin datos todavía — espera la primera ejecución'
+      return
+    }
+
+    const latest   = pfHistory[pfHistory.length - 1]
+    const total    = parseFloat(latest.total_value)
+    const cash     = parseFloat(latest.cash)
+    const pnl      = total - INITIAL_CAPITAL
+    const roi      = (pnl / INITIAL_CAPITAL) * 100
+    const isPaused = latest.paused
+
+    // KPI: total
+    document.getElementById('kpi-total').textContent = fmtE(total)
+    document.getElementById('kpi-total').className   = 'value ' + color(pnl)
+
+    // KPI: P&L
+    document.getElementById('kpi-pnl').textContent     = fmtE(pnl)
+    document.getElementById('kpi-pnl').className       = 'value ' + color(pnl)
+    document.getElementById('kpi-roi').textContent     = 'ROI: ' + fmtP(roi)
+
+    // KPI: posiciones
+    document.getElementById('kpi-pos').textContent     = latest.open_positions_count
+    document.getElementById('kpi-cash').textContent    = 'Efectivo libre: ' + fmtE(cash)
+
+    // Status dot
+    document.getElementById('status-dot').className    = 'dot' + (isPaused ? ' paused' : '')
+    document.getElementById('status-text').textContent = isPaused
+      ? 'Pausado (drawdown)'
+      : 'Activo · ' + dayjs(latest.created_at).format('HH:mm DD/MM')
+
+    // Chart
+    drawChart(pfHistory)
+
+    // ── Trades ─────────────────────────────────────────────
+    const { data: allTrades } = await sb
+      .from('trades')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    const closed = (allTrades || []).filter(t => t.status === 'closed')
+    const opened = (allTrades || []).filter(t => t.status === 'open')
+
+    // Win rate
+    const wins  = closed.filter(t => parseFloat(t.pnl) > 0).length
+    const wr    = closed.length > 0 ? (wins / closed.length * 100) : null
+    document.getElementById('kpi-wr').textContent     = wr != null ? fmtP(wr).replace('+','') : '—'
+    document.getElementById('kpi-trades').textContent = `Operaciones cerradas: ${closed.length}`
+
+    // Open positions with live prices
+    const openSymbols = opened.map(t => t.symbol)
+    const prices      = openSymbols.length ? await getLivePrices(openSymbols) : {}
+
+    const posEl = document.getElementById('open-positions-container')
+    if (opened.length === 0) {
+      posEl.innerHTML = '<p class="empty">Sin posiciones abiertas ahora mismo</p>'
+    } else {
+      posEl.innerHTML = `
+        <table>
+          <thead><tr>
+            <th>Par</th><th>Entrada</th><th>Actual</th><th>P&L</th>
+          </tr></thead>
+          <tbody>
+          ${opened.map(t => {
+            const live = prices[t.symbol]
+            const ep   = parseFloat(t.entry_price)
+            const qty  = parseFloat(t.qty)
+            const ret  = live ? (live - ep) / ep * 100 : null
+            const pnlV = live ? (live - ep) * qty : null
+            return `<tr>
+              <td><strong>${t.symbol}</strong></td>
+              <td>${fmt(ep)}</td>
+              <td>${live ? fmt(live) : '—'}</td>
+              <td class="${ret != null ? color(ret) : ''}">${ret != null ? fmtP(ret) : '—'}
+                <br><small>${pnlV != null ? fmtE(pnlV) : ''}</small></td>
+            </tr>`
+          }).join('')}
+          </tbody>
+        </table>`
+    }
+
+    // Recent closed trades
+    const tradesEl = document.getElementById('trades-container')
+    const recent   = closed.slice(0, 10)
+    if (recent.length === 0) {
+      tradesEl.innerHTML = '<p class="empty">Sin operaciones cerradas todavía</p>'
+    } else {
+      tradesEl.innerHTML = `
+        <table>
+          <thead><tr><th>Par</th><th>P&L</th><th>Motivo</th><th>Fecha</th></tr></thead>
+          <tbody>
+          ${recent.map(t => {
+            const p = parseFloat(t.pnl)
+            const reasonMap = { stop_loss: 'Stop loss', signal_exit: 'Señal' }
+            const pill = p >= 0 ? 'pill-green' : 'pill-red'
+            return `<tr>
+              <td><strong>${t.symbol}</strong></td>
+              <td class="${color(p)}">${fmtE(p)}</td>
+              <td><span class="pill ${p >= 0 ? 'pill-blue' : 'pill-red'}">${reasonMap[t.close_reason] || t.close_reason}</span></td>
+              <td style="color:var(--muted)">${dayjs(t.exit_time).format('DD/MM HH:mm')}</td>
+            </tr>`
+          }).join('')}
+          </tbody>
+        </table>`
+    }
+
+    // ── Signals ────────────────────────────────────────────
+    const { data: latestSignals } = await sb
+      .from('signals')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(9)   // 3 pares × 3 últimas horas
+
+    const sigEl = document.getElementById('signals-container')
+    if (!latestSignals || latestSignals.length === 0) {
+      sigEl.innerHTML = '<p class="empty">Sin señales todavía</p>'
+    } else {
+      // Solo la señal más reciente por par
+      const byPair = {}
+      for (const s of latestSignals) {
+        if (!byPair[s.symbol]) byPair[s.symbol] = s
+      }
+      sigEl.innerHTML = Object.values(byPair).map(s => {
+        const exp = parseFloat(s.expected_return) * 100
+        const dir = exp >= 0 ? '↑' : '↓'
+        return `
+          <div class="signal-row">
+            <div>
+              <div class="signal-sym">${s.symbol}</div>
+              <div class="signal-price">Precio: ${fmt(s.current_price)} · Pred 24h: ${fmt(s.predicted_price_24h)}</div>
+            </div>
+            <div class="signal-exp ${color(exp)}">${dir} ${fmtP(exp)}</div>
+          </div>`
+      }).join('')
+    }
+
+  } catch (err) {
+    console.error(err)
+    document.getElementById('status-text').textContent = 'Error al cargar datos: ' + err.message
+  }
+
+  icon.classList.remove('spinner')
+  icon.textContent = '↻'
+}
+
+// ── Init ───────────────────────────────────────────────────
+const cfg = getConfig()
+if (!cfg.url || !cfg.key) {
+  document.getElementById('setup-overlay').classList.add('show')
+} else {
+  loadAll()
+  // Auto-refresh cada 5 minutos
+  setInterval(() => loadAll(), 5 * 60 * 1000)
+}
+</script>
+</body>
+</html>

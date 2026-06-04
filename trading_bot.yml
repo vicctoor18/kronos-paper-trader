@@ -1,0 +1,61 @@
+name: Kronos Paper Trader
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Cada hora en punto
+  workflow_dispatch:        # Botón para lanzar manualmente desde GitHub
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45      # Si tarda más, algo ha ido mal
+
+    steps:
+      # ── 1. Código del repo ─────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Python 3.10 ────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # ── 3. Cache de pip (ahorra ~2 min por run) ───────────
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}-v2
+
+      # ── 4. Cache de modelos HuggingFace (~300 MB) ─────────
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-kronos-small-v1
+
+      # ── 5. Clonar Kronos (solo el último commit) ──────────
+      - name: Clone Kronos
+        run: git clone --depth 1 https://github.com/shiyu-coder/Kronos.git kronos_repo
+
+      # ── 6. Instalar PyTorch CPU (mucho más ligero que GPU) ─
+      - name: Install PyTorch CPU
+        run: |
+          pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      # ── 7. Instalar dependencias ───────────────────────────
+      - name: Install dependencies
+        run: |
+          pip install -r kronos_repo/requirements.txt
+          pip install -r requirements.txt
+
+      # ── 8. Ejecutar el bot ────────────────────────────────
+      - name: Run bot
+        env:
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+          KRONOS_PATH:   kronos_repo
+          HF_HOME:       /home/runner/.cache/huggingface
+        run: python bot.py
