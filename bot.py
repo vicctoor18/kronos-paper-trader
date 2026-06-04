@@ -159,7 +159,7 @@ def main():
     log.info("━━━━━━━━━━━━━━━━  Kronos Paper Trader — inicio  ━━━━━━━━━━━━━━━━")
 
     sb       = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-    exchange = ccxt.binance({"enableRateLimit": True})
+    exchange = ccxt.bybit({"enableRateLimit": True})   # Bybit: no bloquea IPs de GitHub Actions
     kronos   = load_kronos()
 
     # ── 1. Cargar estado ──────────────────────────────────────
