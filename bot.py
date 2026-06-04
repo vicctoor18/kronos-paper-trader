@@ -19,7 +19,7 @@ from model import Kronos, KronosTokenizer, KronosPredictor  # type: ignore
 # ══════════════════════════════════════════════════════════════
 #  Parámetros — ajusta aquí si quieres experimentar
 # ══════════════════════════════════════════════════════════════
-PAIRS            = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+PAIRS            = ["BTC/USD", "ETH/USD", "SOL/USD"]    # Kraken: USD equivale a USDT
 TIMEFRAME        = "1h"
 LOOKBACK         = 400          # velas históricas que ingesta Kronos
 PRED_LEN         = 24           # predicción de las próximas 24 h
@@ -159,7 +159,7 @@ def main():
     log.info("━━━━━━━━━━━━━━━━  Kronos Paper Trader — inicio  ━━━━━━━━━━━━━━━━")
 
     sb       = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-    exchange = ccxt.bybit({"enableRateLimit": True})   # Bybit: no bloquea IPs de GitHub Actions
+    exchange = ccxt.kraken({"enableRateLimit": True})   # Kraken: exchange USA, funciona desde GitHub Actions
     kronos   = load_kronos()
 
     # ── 1. Cargar estado ──────────────────────────────────────
