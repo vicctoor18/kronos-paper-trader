@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 * * * *'   # Cada hora en punto
   workflow_dispatch:        # Botón para lanzar manualmente desde GitHub
+  push:
+    branches: [main]        # También corre en commits (activa el cron en repos nuevos)
 
 jobs:
   trade:
